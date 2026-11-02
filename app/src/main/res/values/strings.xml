@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Announcer</string>
+    <string name="widget_description">Today\'s announcements and a quick on/off switch</string>
+</resources>
