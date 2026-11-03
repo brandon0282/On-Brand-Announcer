@@ -17,7 +17,7 @@ class WidgetLayoutTest {
     )
 
     @Test fun widgetLayoutsUseOnlyRemoteViewsClasses() {
-        val layouts = listOf(File("src/main/res/layout/widget.xml"))
+        val layouts = listOf(File("src/main/res/layout/widget.xml"), File("src/main/res/layout/widget_compact.xml"))
         for (f in layouts) {
             assertTrue("missing ${f.path}", f.exists())
             val tags = Regex("""<([A-Za-z][\w.]*)[\s>/]""").findAll(f.readText()).map { it.groupValues[1] }.toList()

@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import android.util.SizeF
 import android.widget.RemoteViews
 import dev.bws.announcer.AnnouncerApp
 import dev.bws.announcer.R
@@ -16,6 +18,9 @@ import java.time.LocalDate
 class AnnouncerWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) = refresh(context)
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) =
+        refresh(context)
+
     companion object {
 
         fun refresh(context: Context) {
@@ -25,9 +30,11 @@ class AnnouncerWidget : AppWidgetProvider() {
             val app = AnnouncerApp.instance
             val on = app.settings.current.enabled
             val today = app.stats.days.value.firstOrNull { it.date == LocalDate.now().toString() }
-            val v = RemoteViews(context.packageName, R.layout.widget).apply {
-                setTextViewText(R.id.w_count, "${today?.read ?: 0}")
-                setTextViewText(R.id.w_caption, "read today · ${today?.skipped ?: 0} skipped")
+            fun build(layout: Int, compact: Boolean) = RemoteViews(context.packageName, layout).apply {
+                val read = today?.read ?: 0
+                val skipped = today?.skipped ?: 0
+                setTextViewText(R.id.w_count, "$read")
+                setTextViewText(R.id.w_caption, if (compact) "read · $skipped skipped" else "read today · $skipped skipped")
                 setTextViewText(R.id.w_toggle, if (on) "On" else "Paused")
                 setInt(R.id.w_toggle, "setBackgroundResource", if (on) R.drawable.widget_pill_on else R.drawable.widget_pill_off)
                 setInt(R.id.w_dot, "setBackgroundResource", if (on) R.drawable.widget_dot_on else R.drawable.widget_dot_off)
@@ -37,7 +44,21 @@ class AnnouncerWidget : AppWidgetProvider() {
                 setOnClickPendingIntent(R.id.w_root, PendingIntent.getActivity(context, 2,
                     Intent(context, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             }
-            manager.updateAppWidget(ids, v)
+            // Android 12+: the launcher picks the largest layout that fits each size (incl. both foldable screens).
+            // Older versions: choose by the reported minimum height.
+            val roomyMinHeight = 160f
+            if (Build.VERSION.SDK_INT >= 31) {
+                val v = RemoteViews(mapOf(
+                    SizeF(0f, 0f) to build(R.layout.widget_compact, true),
+                    SizeF(0f, roomyMinHeight) to build(R.layout.widget, false),
+                ))
+                manager.updateAppWidget(ids, v)
+            } else {
+                ids.forEach { id ->
+                    val h = manager.getAppWidgetOptions(id).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+                    manager.updateAppWidget(id, if (h >= roomyMinHeight) build(R.layout.widget, false) else build(R.layout.widget_compact, true))
+                }
+            }
         }
     }
 }

@@ -9,6 +9,7 @@ Hear your notifications read aloud through your headphones, earbuds or car. Free
 1. On your phone, open the [latest release](../../releases/latest) and download the `.apk` file.
 2. Open the downloaded file. If Android asks, allow your browser or Files app to **install unknown apps**, then tap **Install**.
    - If Play Protect warns that it doesn't recognize the app, tap **More details → Install anyway**. That warning appears for any app not from the Play Store.
+   - If an antivirus app (Norton, McAfee, etc.) says it's **suspicious**, tap **Cancel / Ignore**, not Uninstall. They flag new apps from outside the Play Store that can read notifications. Announcer has **no internet permission**, so it can't send your data anywhere.
 3. Open **Announcer**, tap **Grant Access**, and switch Announcer on in the screen that opens.
 4. Connect headphones and you're set. By default it only talks when headphones or a car stereo are connected; you can change that in **Settings → Output**.
 
