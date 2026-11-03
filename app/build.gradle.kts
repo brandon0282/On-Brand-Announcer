@@ -14,8 +14,8 @@ android {
         applicationId = "dev.bws.announcer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.1"
+        versionCode = 5
+        versionName = "1.2.2"
     }
 
     // Release key lives outside the repo (~/.android-keys). Without it, release builds fall back to the

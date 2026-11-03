@@ -12,8 +12,9 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
-        <View
+        <ImageView
             android:id="@+id/w_dot"
+            android:importantForAccessibility="no"
             android:layout_width="8dp"
             android:layout_height="8dp"
             android:background="@drawable/widget_dot_on" />
@@ -46,7 +47,7 @@
         android:textColor="#99EBEBF5"
         android:textSize="12sp" />
 
-    <View
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
