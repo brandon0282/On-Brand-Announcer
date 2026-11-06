@@ -220,7 +220,8 @@ fun IosSegmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
 @Composable
 fun IosSlider(
     title: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, display: String,
-    subtitle: String? = null, divider: Boolean = true, onChange: (Float) -> Unit,
+    subtitle: String? = null, divider: Boolean = true, enabled: Boolean = true,
+    onChangeFinished: (() -> Unit)? = null, onChange: (Float) -> Unit,
 ) {
     Column {
         Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
@@ -229,7 +230,8 @@ fun IosSlider(
             val tint = ios.tint
             val fill = ios.fill
             Slider(
-                value, onChange, valueRange = range, steps = steps,
+                value, onChange, valueRange = range, steps = steps, enabled = enabled,
+                onValueChangeFinished = onChangeFinished,
                 thumb = { Box(Modifier.size(28.dp).shadow(3.dp, CircleShape).background(Color.White, CircleShape)) },
                 track = { state ->
                     val f = ((state.value - range.start) / (range.endInclusive - range.start)).coerceIn(0f, 1f)

@@ -41,6 +41,8 @@ sealed interface Decision {
         val sender: String? = null,
         val content: String = "",
         val priority: Boolean = false,
+        /** True when content was withheld (privacy or sensitive), so combined summaries stay vague too. */
+        val redacted: Boolean = false,
     ) : Decision
     data class Mute(val reason: String) : Decision
 }
@@ -102,9 +104,21 @@ object Rules {
         val voice = rule.voiceName ?: device?.voiceName ?: c.voiceName
         val who = n.sender ?: n.title.takeIf { it.isNotBlank() }
         val group = n.pkg + "|" + (who?.lowercase() ?: "")
-        if (c.privacyMode) {
-            return Decision.Speak(if (name.isBlank()) "New notification" else "Notification from $name",
-                voice, group, name, who, "", priority)
+        val private = Privacy.isPrivate(d, device)
+        val hideAll = when (c.privacy) {
+            PrivacyMode.ALWAYS -> true
+            PrivacyMode.SHARED_ONLY -> !private
+            PrivacyMode.OFF -> false
+        }
+        val from = if (name.isBlank()) "" else " from $name"
+        if (hideAll) {
+            return Decision.Speak(if (name.isBlank()) "New notification" else "Notification$from",
+                voice, group, name, who, "", priority, redacted = true)
+        }
+        // Codes, banking and security alerts: full detail only where nobody else can hear.
+        val kind = Privacy.sensitiveKind(content)
+        if (kind != null && (Privacy.isSystemRedacted(content) || (c.protectSensitive && !private))) {
+            return Decision.Speak("$kind$from", voice, group, name, who, "", priority, redacted = true)
         }
         val limit = if (rule.maxWords > 0) rule.maxWords else c.maxWords
         val spoken = Text.shape(content, limit, c.skipEmojis, c.shortenLinks)
@@ -127,6 +141,56 @@ object Rules {
         val digits = caller.filter { it.isDigit() }
         val looksLikeNumber = digits.length >= 5 && caller.all { it.isDigit() || it in "+-() ." }
         return if (looksLikeNumber) "Call from " + digits.toList().joinToString(" ") else "Call from $caller"
+    }
+}
+
+/** Who can hear the announcement, and which messages are too sensitive for shared audio. */
+object Privacy {
+    // Checked first: these are personal listening devices even when the brand also makes speakers
+    // (e.g. "Soundcore Liberty 5 Pro" earbuds vs "Soundcore Motion" speaker).
+    private val personal = Regex(
+        """\b(liberty|life|space|aerofit|buds?\d*|pods|airpods|earbuds?|earphones?|headphones?|headset|beats|powerbeats|""" +
+            """jabra|elite|freebuds|momentum|wf-\S+|wh-\S+|qc|quietcomfort|hearing|ear(fun)?|shokz|openrun|sport)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+    // Audio others can hear: cars and loudspeakers.
+    private val shared = Regex(
+        """\b(car|auto|sync|uconnect|carplay|mylink|entune|mbux|idrive|uvo|bluelink|hands-?free|stereo|speaker|soundlink|""" +
+            """motion|boom|flip|charge|pulse|xtreme|soundbar|sonos|echo|nest|tv|receiver|toyota|honda|ford|chevrolet|chevy|""" +
+            """gmc|jeep|dodge|ram|kia|hyundai|subaru|nissan|tesla|bmw|audi|vw|volkswagen|lexus|acura|volvo|mazda|buick|cadillac|lincoln)\b""",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /** Best guess from a device's name; the user can override per device. */
+    fun guessPrivate(name: String): Boolean = when {
+        personal.containsMatchIn(name) -> true
+        shared.containsMatchIn(name) -> false
+        else -> true // unknown Bluetooth audio is most often headphones
+    }
+
+    fun isPrivate(d: DeviceState, rule: DeviceRule?): Boolean {
+        if (!d.headphones) return false // phone speaker
+        val name = d.deviceName ?: return true // wired / unnamed headphones
+        return rule?.private ?: guessPrivate(name)
+    }
+
+    private val code = Regex("""\b(verification|verify|security|login|log-?in|sign-?in|one[- ]time|otp|2fa|passcode|confirmation|access)\s*(code|pin|number)?\b|\bcode\b|\bpin\b""", RegexOption.IGNORE_CASE)
+    private val digits = Regex("""\b[A-Z]?-?\d{4,8}\b""")
+    private val money = Regex("""[$€£]\s?\d|\b\d+[.,]\d{2}\s?(usd|eur|gbp)\b""", RegexOption.IGNORE_CASE)
+    private val bankWords = Regex("""\b(balance|deposit|deposited|withdrawal|withdrawn|payment|paid|charged?|purchase|transaction|transfer|debit|credit|card ending|account ending|zelle|venmo|cash app)\b""", RegexOption.IGNORE_CASE)
+    private val security = Regex("""\b(password|reset your|new sign-?in|login attempt|sign-?in attempt|unusual activity|suspicious activity|2-step|two-factor)\b""", RegexOption.IGNORE_CASE)
+    private val systemHidden = Regex("""sensitive notification content hidden|content hidden""", RegexOption.IGNORE_CASE)
+
+    /** Android 15+ blanks one-time codes for apps like this one; there's nothing to read anyway. */
+    fun isSystemRedacted(text: String) = systemHidden.containsMatchIn(text)
+
+    /** "Verification code" / "Banking alert" / "Security alert", or null if nothing sensitive. */
+    fun sensitiveKind(text: String): String? = when {
+        isSystemRedacted(text) -> "Verification code"
+        code.containsMatchIn(text) && digits.containsMatchIn(text) -> "Verification code"
+        money.containsMatchIn(text) && bankWords.containsMatchIn(text) -> "Banking alert"
+        security.containsMatchIn(text) -> "Security alert"
+        else -> null
     }
 }
 

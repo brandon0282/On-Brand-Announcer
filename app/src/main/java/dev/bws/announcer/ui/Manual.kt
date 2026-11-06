@@ -35,7 +35,9 @@ private val chapters: List<Pair<String, List<Topic>>> = listOf(
         Topic("Privacy", Icons.Filled.Lock, { ios.gray }, listOf(
             "Announcer has no internet permission, so it physically cannot send anything off your phone. History and statistics are stored only on this device.",
             "It doesn't ask for contacts, location or phone permissions. Caller ID uses your phone app's own call notification, and Priority People uses the system contact picker, which shares only the contact you choose.",
-            "Privacy Mode (Settings → What to say) reads only the app name, never the message.",
+            "Settings → Privacy decides when message text is spoken. Shared audio only (the default): full messages in your earbuds or headphones, but only \"Notification from WhatsApp\" on the phone speaker, in the car or on a Bluetooth speaker. Always: app name only, everywhere. Off: full messages everywhere.",
+            "Protect Sensitive Messages: verification codes, banking alerts and password or sign-in alerts are read in full only on private devices. Elsewhere you hear \"Verification code from Chase\".",
+            "Note: since Android 15, Android itself hides one-time codes from apps like Announcer, so you'll hear that a code arrived but not the digits.",
         )),
     ),
     "The tabs" to listOf(
@@ -59,6 +61,10 @@ private val chapters: List<Pair<String, List<Topic>>> = listOf(
             "• Lower Other Audio: music and podcasts dip while a notification is read.",
             "Which voice is used: the app's own voice first, then the connected device's voice, then the main voice.",
         )),
+        Topic("Attention tone", Icons.Filled.Notifications, { ios.orange }, listOf(
+            "Voice → Attention tone. A short, soft tone plays right before an announcement so the voice doesn't startle you. Choose Soft Bell, Two Tone, Rising Chime, Droplet, Marimba, Glass, or None. Tap one to hear it.",
+            "A burst of notifications gets one tone, not one each. Tone volume sets how loud it is compared with the voice.",
+        )),
         Topic("Activity", Icons.Filled.DateRange, { ios.teal }, listOf(
             "A log of the last 200 notifications: exactly what was said, or why each one was skipped. Tap an entry to expand long messages. Filter to Read or Skipped with the control at the top.",
         )),
@@ -78,6 +84,7 @@ private val chapters: List<Pair<String, List<Topic>>> = listOf(
             "Settings → Devices. Each headphone, earbud or car stereo is remembered by name the first time it connects.",
             "• Switch a device off to keep Announcer quiet on it, e.g. work earbuds.",
             "• Tap a device to give it its own voice, e.g. a deeper voice in the car.",
+            "• Only I Can Hear This: private devices hear full messages, shared ones only the app name. Announcer guesses from the name: earbuds and headphones (e.g. Soundcore Liberty, AirPods, Galaxy Buds) are private; cars and speakers are shared. Tap a device to change it.",
             "• Turn off Read on New Devices if you want new devices to stay silent until you enable them.",
         )),
         Topic("Combining bursts", Icons.Filled.Email, { ios.tint }, listOf(
@@ -114,6 +121,10 @@ private val chapters: List<Pair<String, List<Topic>>> = listOf(
             "• Say App Name, Privacy Mode, Skip Emojis, and Shorten Links (\"link to youtube.com\").",
             "• Max words: long messages are cut off with \"… and more\".",
             "• Block & Allow Words: block words mute any notification containing them. If you add allow words, only notifications containing one of them are read.",
+        )),
+        Topic("Updates", Icons.Filled.Refresh, { ios.green }, listOf(
+            "Settings → Updates → Check for Updates shows your version and opens the latest release on GitHub in your browser. If the version there is newer, download the .apk and install it over the current app; your settings, history and voices are kept.",
+            "Announcer can't check by itself because it has no internet permission. That's what guarantees your notifications never leave the phone.",
         )),
         Topic("Backup", Icons.Filled.Share, { ios.tint }, listOf(
             "Export Settings saves everything (apps, voices, words, schedules, devices) to a file. Import Settings restores it, e.g. on a new phone.",

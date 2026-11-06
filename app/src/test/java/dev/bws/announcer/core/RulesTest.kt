@@ -39,7 +39,7 @@ class RulesTest {
     }
 
     @Test fun privacyModeHidesContent() =
-        assertEquals("Notification from Chat", speak(Rules.decide(n, headphones, c.copy(privacyMode = true), never)))
+        assertEquals("Notification from Chat", speak(Rules.decide(n, headphones, c.copy(privacy = PrivacyMode.ALWAYS), never)))
 
     @Test fun customBlankNameSkipsAppName() {
         val cfg = c.copy(apps = mapOf("com.chat" to AppRule(spokenName = "")))
@@ -125,5 +125,62 @@ class RulesTest {
         assertEquals(java.time.LocalDateTime.of(2026, 11, 2, 15, 0), TimeAnnouncer.nextBoundary(t, 60))
         assertEquals(java.time.LocalDateTime.of(2026, 11, 2, 15, 0), TimeAnnouncer.nextBoundary(t, 180))
         assertEquals(java.time.LocalDateTime.of(2026, 11, 3, 0, 0), TimeAnnouncer.nextBoundary(t.withHour(23).withMinute(45), 30))
+    }
+
+    // ---- v1.3: smart privacy, sensitive messages
+
+    @Test fun guessesPrivateDevicesByName() {
+        listOf("Soundcore Liberty 5 Pro", "AirPods Pro", "Galaxy Buds3 Pro", "Pixel Buds Pro", "WF-1000XM5",
+            "Bose QC Ultra Earbuds", "Soundcore Life Q30", "Mystery Device").forEach {
+            assertTrue("$it should be private", Privacy.guessPrivate(it))
+        }
+        listOf("Soundcore Motion 300", "JBL Flip 6", "Bose SoundLink Flex", "Toyota Camry", "My Car", "SYNC", "Uconnect").forEach {
+            assertFalse("$it should be shared", Privacy.guessPrivate(it))
+        }
+    }
+
+    private val earbuds = headphones.copy(deviceName = "Soundcore Liberty 5 Pro")
+    private val car = headphones.copy(deviceName = "Toyota Camry")
+    private val speaker = headphones.copy(headphones = false)
+    private val loud = c.copy(outputMode = OutputMode.ALWAYS)
+
+    @Test fun sharedOnlyPrivacyFollowsDevice() {
+        assertEquals("Chat. Mom. Dinner at 6?", speak(Rules.decide(n, earbuds, c, never)))
+        assertEquals("Notification from Chat", speak(Rules.decide(n, car, c, never)))
+        assertEquals("Notification from Chat", speak(Rules.decide(n, speaker, loud, never)))
+        assertEquals("Chat. Mom. Dinner at 6?", speak(Rules.decide(n, speaker, loud.copy(privacy = PrivacyMode.OFF), never)))
+        assertEquals("Notification from Chat", speak(Rules.decide(n, earbuds, c.copy(privacy = PrivacyMode.ALWAYS), never)))
+    }
+
+    @Test fun deviceOverrideBeatsGuess() {
+        val trusted = c.copy(devices = mapOf("Toyota Camry" to DeviceRule(private = true)))
+        assertEquals("Chat. Mom. Dinner at 6?", speak(Rules.decide(n, car, trusted, never)))
+    }
+
+    @Test fun sensitiveMessagesOnlyInFullOnPrivateDevices() {
+        val otp = n.copy(appLabel = "Chase", title = "Chase", body = "Your verification code is 482913")
+        val off = c.copy(privacy = PrivacyMode.OFF)
+        assertEquals("Verification code from Chase", speak(Rules.decide(otp, car, off, never)))
+        assertTrue(speak(Rules.decide(otp, earbuds, off, never)).contains("482913"))
+        assertTrue(speak(Rules.decide(otp, car, off.copy(protectSensitive = false), never)).contains("482913"))
+        val bank = n.copy(appLabel = "Chase", title = "Deposit", body = "$1,250.00 was deposited to account ending 1234")
+        assertEquals("Banking alert from Chase", speak(Rules.decide(bank, car, off, never)))
+        val chat = n.copy(body = "See you at 6, bring the code book")
+        assertTrue(Privacy.sensitiveKind(chat.body) == null)
+    }
+
+    @Test fun androidRedactedCodesAreNamedNotRead() {
+        val hidden = n.copy(appLabel = "Chase", title = "Chase", body = "Sensitive notification content hidden")
+        assertEquals("Verification code from Chase", speak(Rules.decide(hidden, earbuds, c, never)))
+    }
+
+    @Test fun legacyPrivacyFlagMigrates() {
+        val old = org.json.JSONObject().put("privacyMode", true)
+        assertEquals(PrivacyMode.ALWAYS, Settings.fromJson(old).privacy)
+        assertEquals(PrivacyMode.SHARED_ONLY, Settings.fromJson(org.json.JSONObject()).privacy)
+    }
+
+    @Test fun everyToneHasAResource() {
+        Chime.entries.filter { it != Chime.OFF }.forEach { assertTrue("$it", java.io.File("src/main/res/raw/chime_${it.name.lowercase()}.wav").length() > 1000) }
     }
 }

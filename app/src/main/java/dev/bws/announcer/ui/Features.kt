@@ -32,6 +32,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.bws.announcer.core.ListenerService
+import dev.bws.announcer.core.Privacy
 import dev.bws.announcer.core.QuietHours
 import dev.bws.announcer.core.TimeAnnouncer
 import java.time.LocalTime
@@ -116,7 +117,11 @@ fun DevicesScreen() {
                 val v = voices.firstOrNull { it.id == r.voiceName }?.displayName
                 IosRow(
                     name,
-                    subtitle = listOfNotNull(if (name == connected) "Connected" else null, v?.let { "Voice: $it" }).joinToString(" · ").ifEmpty { null },
+                    subtitle = listOfNotNull(
+                        if (name == connected) "Connected" else null,
+                        if (r.private ?: Privacy.guessPrivate(name)) "Private" else "Shared",
+                        v?.let { "Voice: $it" },
+                    ).joinToString(" · "),
                     icon = if (name.contains("car", true) || name.contains("sync", true)) Icons.Filled.Place else Icons.Filled.Notifications,
                     iconColor = if (name == connected) ios.green else ios.gray,
                     chevron = true, divider = i < list.lastIndex,
@@ -146,6 +151,18 @@ fun DeviceDetailScreen(name: String) {
             IosRow("Voice", icon = Icons.Filled.Face, iconColor = ios.purple,
                 value = voices.firstOrNull { it.id == r.voiceName }?.displayName ?: "Main voice", chevron = true, divider = false,
                 onClick = { nav.push(Route.VoicePicker(null, name, device = name)) })
+        }
+        val guess = Privacy.guessPrivate(name)
+        IosSection(footer = "Private devices (earbuds, headphones) hear full messages, including sensitive ones. " +
+            "Shared devices (car, speakers) only hear the app name, because others nearby can hear. " +
+            "Announcer guessed ${if (guess) "private" else "shared"} from the name." +
+            if (r.private != null) " You changed it." else "") {
+            IosToggleRow("Only I Can Hear This", r.private ?: guess, icon = Icons.Filled.Lock, iconColor = ios.indigo,
+                divider = r.private != null) { v ->
+                app.settings.setDeviceRule(name, r.copy(private = if (v == guess) null else v))
+            }
+            if (r.private != null) IosRow("Use Automatic Setting", titleColor = ios.tint, divider = false,
+                onClick = { app.settings.setDeviceRule(name, r.copy(private = null)) })
         }
         Text("A device voice is used whenever this device is connected, unless the app has its own voice.",
             Modifier.padding(horizontal = 32.dp), style = IosType.footnote, color = ios.secondary)

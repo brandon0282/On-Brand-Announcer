@@ -18,6 +18,8 @@ import java.util.concurrent.atomic.AtomicInteger
  * Each utterance can use its own voice (global or per-app), resolved by name at speak time.
  */
 class Speaker(context: Context, private val settings: Settings) {
+    private val pkg = context.packageName
+    private val registeredChimes = HashSet<Chime>()
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attrs = AudioAttributes.Builder()
         .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
@@ -34,7 +36,11 @@ class Speaker(context: Context, private val settings: Settings) {
     /** Installed voices with friendly names, best first. Empty until the engine is ready. */
     val voices: StateFlow<List<VoiceInfo>> = _voices
 
-    private data class Utterance(val text: String, val voice: String?, val rate: Float?, val pitch: Float?, val flush: Boolean)
+    private data class Utterance(
+        val text: String, val voice: String?, val rate: Float?, val pitch: Float?, val flush: Boolean,
+        /** null = use the setting; otherwise force this tone (previews). */
+        val chime: Chime? = null,
+    )
 
     private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
         synchronized(this) {
@@ -61,6 +67,10 @@ class Speaker(context: Context, private val settings: Settings) {
     /** Interrupts whatever is playing to audition a voice/style. */
     fun preview(text: String, voice: String?, rate: Float? = null, pitch: Float? = null) =
         submit(Utterance(text, voice, rate, pitch, true))
+
+    /** Audition an attention tone followed by a short sample. */
+    fun previewChime(chime: Chime) =
+        submit(Utterance("New message", settings.current.voiceName, null, null, true, chime = chime))
 
     @Synchronized
     private fun submit(u: Utterance) {
@@ -91,8 +101,30 @@ class Speaker(context: Context, private val settings: Settings) {
         tts.setPitch(u.pitch ?: c.pitch)
         val v = u.voice?.let { name -> runCatching { tts.voices }.getOrNull()?.firstOrNull { it.name == name } } ?: defaultVoice
         if (v != null && v != tts.voice) runCatching { tts.voice = v }
-        if (pending.getAndIncrement() == 0) requestFocus(c.duckOthers)
+        val idle = pending.get() == 0
+        if (idle) requestFocus(c.duckOthers)
+        // Attention tone only when starting from silence, so a burst of announcements gets one tone, not many.
+        val chime = u.chime ?: c.chime
+        if (idle && chime != Chime.OFF && registerChime(chime)) {
+            val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, c.chimeVolume.coerceIn(0.05f, 1f)) }
+            pending.incrementAndGet()
+            tts.playEarcon(earcon(chime), TextToSpeech.QUEUE_ADD, params, "c${ids.incrementAndGet()}")
+            pending.incrementAndGet()
+            tts.playSilentUtterance(150, TextToSpeech.QUEUE_ADD, "s${ids.incrementAndGet()}")
+        }
+        pending.incrementAndGet()
         tts.speak(u.text, TextToSpeech.QUEUE_ADD, Bundle(), "u${ids.incrementAndGet()}")
+    }
+
+    private fun earcon(c: Chime) = "[announcer_${c.name.lowercase()}]"
+
+    private fun registerChime(c: Chime): Boolean {
+        if (c in registeredChimes) return true
+        return runCatching {
+            // Registered by resource id: the TTS engine runs in another app and reads our APK resources directly.
+            tts.addEarcon(earcon(c), pkg, Chimes.resource(c) ?: error("no tone"))
+            registeredChimes += c
+        }.isSuccess
     }
 
     private fun finished() {

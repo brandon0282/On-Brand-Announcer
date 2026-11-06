@@ -9,6 +9,15 @@ import org.json.JSONObject
 
 enum class OutputMode { HEADPHONES_ONLY, ALWAYS }
 
+/** When to hide message content and say only which app it's from. */
+enum class PrivacyMode { SHARED_ONLY, ALWAYS, OFF }
+
+/** Short synthesized tone played before an announcement. */
+enum class Chime(val label: String) {
+    OFF("None"), SOFT_BELL("Soft Bell"), TWO_TONE("Two Tone"), RISING("Rising Chime"),
+    DROPLET("Droplet"), MARIMBA("Marimba"), GLASS("Glass"),
+}
+
 /** Per-app override. Empty [spokenName] = don't say the app name; null = use the real label. */
 data class AppRule(
     val enabled: Boolean = true,
@@ -22,6 +31,8 @@ data class DeviceRule(
     val enabled: Boolean = true,
     val voiceName: String? = null,
     val lastSeen: Long = 0,
+    /** "Only I can hear this". null = decide from the device name (earbuds private, cars/speakers shared). */
+    val private: Boolean? = null,
 )
 
 /**
@@ -54,7 +65,10 @@ data class Config(
     val skipSilent: Boolean = true,
     val newAppsEnabled: Boolean = true,
     val sayAppName: Boolean = true,
-    val privacyMode: Boolean = false,
+    val privacy: PrivacyMode = PrivacyMode.SHARED_ONLY,
+    val protectSensitive: Boolean = true,
+    val chime: Chime = Chime.SOFT_BELL,
+    val chimeVolume: Float = 0.6f,
     val skipEmojis: Boolean = true,
     val shortenLinks: Boolean = true,
     val maxWords: Int = 40,
@@ -132,7 +146,10 @@ class Settings(context: Context) {
             put("skipSilent", c.skipSilent)
             put("newAppsEnabled", c.newAppsEnabled)
             put("sayAppName", c.sayAppName)
-            put("privacyMode", c.privacyMode)
+            put("privacy", c.privacy.name)
+            put("protectSensitive", c.protectSensitive)
+            put("chime", c.chime.name)
+            put("chimeVolume", c.chimeVolume.toDouble())
             put("skipEmojis", c.skipEmojis)
             put("shortenLinks", c.shortenLinks)
             put("maxWords", c.maxWords)
@@ -163,6 +180,7 @@ class Settings(context: Context) {
                 c.devices.forEach { (name, r) ->
                     put(name, JSONObject().apply {
                         put("enabled", r.enabled); put("lastSeen", r.lastSeen)
+                        r.private?.let { put("private", it) }
                         r.voiceName?.let { put("voiceName", it) }
                     })
                 }
@@ -197,7 +215,8 @@ class Settings(context: Context) {
                 j.optJSONObject("devices")?.let { o ->
                     o.keys().forEach { name ->
                         val r = o.getJSONObject(name)
-                        put(name, DeviceRule(r.optBoolean("enabled", true), r.optString("voiceName").ifEmpty { null }, r.optLong("lastSeen")))
+                        put(name, DeviceRule(r.optBoolean("enabled", true), r.optString("voiceName").ifEmpty { null }, r.optLong("lastSeen"),
+                            if (r.has("private")) r.getBoolean("private") else null))
                     }
                 }
             }
@@ -218,7 +237,13 @@ class Settings(context: Context) {
                 skipSilent = j.optBoolean("skipSilent", d.skipSilent),
                 newAppsEnabled = j.optBoolean("newAppsEnabled", d.newAppsEnabled),
                 sayAppName = j.optBoolean("sayAppName", d.sayAppName),
-                privacyMode = j.optBoolean("privacyMode", d.privacyMode),
+                // 1.2.x stored a boolean privacyMode; true meant "always".
+                privacy = runCatching { PrivacyMode.valueOf(j.getString("privacy")) }.getOrElse {
+                    if (j.optBoolean("privacyMode", false)) PrivacyMode.ALWAYS else d.privacy
+                },
+                protectSensitive = j.optBoolean("protectSensitive", d.protectSensitive),
+                chime = runCatching { Chime.valueOf(j.getString("chime")) }.getOrDefault(d.chime),
+                chimeVolume = j.optDouble("chimeVolume", d.chimeVolume.toDouble()).toFloat(),
                 skipEmojis = j.optBoolean("skipEmojis", d.skipEmojis),
                 shortenLinks = j.optBoolean("shortenLinks", d.shortenLinks),
                 maxWords = j.optInt("maxWords", d.maxWords),

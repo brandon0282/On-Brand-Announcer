@@ -88,7 +88,7 @@ class ListenerService : NotificationListenerService() {
         if (pending[group] === p) pending.remove(group)
         if (p.items.isEmpty()) return
         val (lastParsed, last) = p.items.last()
-        val text = Rules.combined(last, p.items.size, app.settings.current.privacyMode)
+        val text = Rules.combined(last, p.items.size, last.redacted)
         app.speaker.speak(text, last.voice)
         p.items.dropLast(1).forEach { (parsed, _) -> record(parsed, null, Rules.COMBINED) }
         record(lastParsed, text, null)

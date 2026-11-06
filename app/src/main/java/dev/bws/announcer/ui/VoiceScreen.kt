@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.bws.announcer.core.Chime
 import dev.bws.announcer.core.Gender
 import dev.bws.announcer.core.VoiceCatalog
 import dev.bws.announcer.core.VoiceInfo
@@ -67,6 +68,20 @@ fun VoiceScreen() {
                         app.settings.update { it.copy(speechRate = s.rate, pitch = s.pitch) }
                         app.speaker.preview(SAMPLE, c.voiceName, s.rate, s.pitch)
                     }) { if (on) Icon(Icons.Filled.Check, null, tint = ios.tint) }
+                }
+            }
+        }
+        item {
+            IosSection("Attention tone", footer = "A short tone before each announcement so it doesn't catch you off guard. Several notifications in a row get one tone. Tap to hear.") {
+                Chime.entries.forEachIndexed { i, ch ->
+                    IosRow(ch.label, divider = true, onClick = {
+                        app.settings.update { it.copy(chime = ch) }
+                        app.speaker.previewChime(ch)
+                    }) { if (c.chime == ch) Icon(Icons.Filled.Check, null, tint = ios.tint) }
+                }
+                IosSlider("Tone volume", c.chimeVolume, 0.1f..1f, 8, "${(c.chimeVolume * 100).toInt()}%", divider = false,
+                    enabled = c.chime != Chime.OFF, onChangeFinished = { app.speaker.previewChime(app.settings.current.chime) }) { v ->
+                    app.settings.update { it.copy(chimeVolume = v) }
                 }
             }
         }

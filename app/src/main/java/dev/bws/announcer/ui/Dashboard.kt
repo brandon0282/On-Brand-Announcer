@@ -71,7 +71,8 @@ fun DashboardScreen(onOpenTab: (Int) -> Unit) {
                 c.quiet.isActive(device.minuteOfDay, device.dayOfWeek) -> Quad(ios.indigo, Icons.Filled.Lock, "Quiet hours",
                     "Until ${formatMinute(c.quiet.endMinute)}" + if (c.priorityPeople.isNotEmpty() && c.priorityBypass) " · priority people allowed" else "")
                 else -> Quad(ios.green, Icons.Filled.CheckCircle, "Listening",
-                    if (device.headphones) (device.deviceName ?: "Headphones") + " connected" else if (c.outputMode.name == "ALWAYS") "Using the phone speaker"
+                    if (device.headphones) (device.deviceName ?: "Headphones") + " connected · " +
+                        (if (dev.bws.announcer.core.Privacy.isPrivate(device, c.deviceRule(device.deviceName))) "private" else "shared") else if (c.outputMode.name == "ALWAYS") "Using the phone speaker"
                     else "Waiting for headphones")
             }
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.bws.announcer.core.LogEntry
 import dev.bws.announcer.core.NotificationParser
 import dev.bws.announcer.core.OutputMode
+import dev.bws.announcer.core.PrivacyMode
 import dev.bws.announcer.core.TimeAnnouncer
 import java.time.Instant
 import java.time.LocalDate
@@ -299,9 +300,24 @@ fun SettingsScreen() {
             }
         }
 
+        IosSection("Privacy", footer = when (c.privacy) {
+            PrivacyMode.SHARED_ONLY -> "Full messages in your earbuds and headphones. On the phone speaker, car or other shared audio, only the app name (\u201cNotification from WhatsApp\u201d). Set which devices are private in Devices."
+            PrivacyMode.ALWAYS -> "Only the app name is ever said, even in earbuds."
+            PrivacyMode.OFF -> "Full messages everywhere, including the phone speaker and car."
+        }) {
+            IosSegmented(listOf("Shared audio only", "Always", "Off"),
+                when (c.privacy) { PrivacyMode.SHARED_ONLY -> 0; PrivacyMode.ALWAYS -> 1; PrivacyMode.OFF -> 2 },
+                { i -> set { it.copy(privacy = listOf(PrivacyMode.SHARED_ONLY, PrivacyMode.ALWAYS, PrivacyMode.OFF)[i]) } },
+                Modifier.padding(12.dp).fillMaxWidth())
+            IosDivider()
+            IosToggleRow("Protect Sensitive Messages", c.protectSensitive,
+                subtitle = "Codes, banking and security alerts are read in full only on private devices", divider = false) { v ->
+                set { it.copy(protectSensitive = v) }
+            }
+        }
+
         IosSection("What to say") {
             IosToggleRow("Say App Name", c.sayAppName) { v -> set { it.copy(sayAppName = v) } }
-            IosToggleRow("Privacy Mode", c.privacyMode, subtitle = "Only say which app, never the message") { v -> set { it.copy(privacyMode = v) } }
             IosToggleRow("Skip Emojis", c.skipEmojis) { v -> set { it.copy(skipEmojis = v) } }
             IosToggleRow("Shorten Links", c.shortenLinks, subtitle = "“link to youtube.com”") { v -> set { it.copy(shortenLinks = v) } }
             IosSlider("Max words", c.maxWords.toFloat(), 10f..150f, 13, "${c.maxWords}") { v -> set { it.copy(maxWords = v.roundToInt()) } }
@@ -321,15 +337,27 @@ fun SettingsScreen() {
             IosRow("Import Settings", titleColor = ios.tint, divider = false, onClick = { importer.launch(arrayOf("application/json", "text/*")) })
         }
 
+        val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() }
+        IosSection("Updates", footer = "Opens the latest release in your browser. If its version is newer than yours, download the APK there and install it over this one; your settings are kept. Announcer itself never connects to the internet.") {
+            IosRow("Check for Updates", icon = Icons.Filled.Refresh, iconColor = ios.green,
+                value = "You have ${version.orEmpty()}", chevron = true, divider = false, onClick = {
+                    val ok = runCatching {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(RELEASES_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }.isSuccess
+                    if (!ok) Toast.makeText(ctx, "No browser found. Visit $RELEASES_URL", Toast.LENGTH_LONG).show()
+                })
+        }
+
         IosSection("Data", footer = "Announcer has no internet permission. Your notifications, history and stats never leave this phone.") {
             IosRow("Reset Statistics", titleColor = ios.red, divider = false, onClick = { app.stats.clear() })
         }
-        val version = remember { runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() }
         Text("Announcer ${version.orEmpty()}", Modifier.fillMaxWidth().padding(16.dp), color = ios.secondary,
             style = IosType.footnote, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         Spacer(Modifier.height(16.dp))
     }
 }
+
+private const val RELEASES_URL = "https://github.com/brandon0282/On-Brand-Announcer/releases/latest"
 
 private fun formatSecs(s: Int) = if (s < 60) "$s s" else if (s % 60 == 0) "${s / 60} min" else "%.1f min".format(s / 60.0)
 
