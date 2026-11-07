@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug/smoke builds only: lets adb drive the speech pipeline. Never part of release builds. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver android:name="dev.bws.announcer.SmokeReceiver" android:exported="true" />
+    </application>
+</manifest>

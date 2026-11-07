@@ -59,7 +59,7 @@ class ListenerService : NotificationListenerService() {
 
         val decision = Rules.decide(parsed, state, config) { content -> app.deduper.checkAndRecord(parsed.pkg, content) }
         when (decision) {
-            is Decision.Mute -> record(parsed, null, decision.reason)
+            is Decision.Mute -> if (shouldLogSkip(parsed, decision.reason)) record(parsed, null, decision.reason)
             is Decision.Speak -> main.post { queue(parsed, decision, config) }
         }
     }
@@ -135,6 +135,28 @@ class ListenerService : NotificationListenerService() {
         pending.clear()
         ringing.clear()
         super.onDestroy()
+    }
+
+    /** key|reason -> last time logged. Bounded; main/binder threads only touch it under its own lock. */
+    private val lastSkip = object : LinkedHashMap<String, Long>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Long>) = size > 500
+    }
+
+    /**
+     * Expected skips (ongoing, media/progress, group summaries) aren't logged at all: apps like trackers,
+     * players and downloads re-post them constantly, which flooded the log and stats and wasted battery.
+     * Other skips are logged once per notification per 10 minutes, not on every update.
+     */
+    private fun shouldLogSkip(p: Parsed, reason: String): Boolean {
+        if (p.isOngoing || p.isMediaOrProgress || p.isGroupSummary) return false
+        val k = p.key + "|" + reason
+        val now = System.currentTimeMillis()
+        synchronized(lastSkip) {
+            val prev = lastSkip[k]
+            if (prev != null && now - prev < 10 * 60_000L) return false
+            lastSkip[k] = now
+        }
+        return true
     }
 
     private fun record(p: Parsed, spoken: String?, reason: String?) =

@@ -41,8 +41,10 @@ fun VoiceScreen() {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { app.speaker.refreshVoices() }
     val current = voices.firstOrNull { it.id == c.voiceName }
 
+    val engineReady by app.speaker.engineReady.collectAsStateWithLifecycle()
     LazyColumn(Modifier.fillMaxSize()) {
         item { LargeTitle("Voice", "Choose who reads your notifications") }
+        if (!engineReady) item { EngineStatus() }
         item {
             IosSection {
                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -148,9 +150,7 @@ fun VoicePickerScreen(pkg: String?, label: String?, device: String? = null) {
                     }
                 }
             }
-            if (voices.isEmpty()) item {
-                Text("Loading voices…", Modifier.padding(20.dp), color = ios.secondary)
-            }
+            if (voices.isEmpty()) item { EngineStatus() }
             groups.forEach { (accent, list) ->
                 item(key = accent) {
                     IosSection(accent) {
@@ -209,5 +209,18 @@ fun Avatar(g: Gender, size: androidx.compose.ui.unit.Dp) {
 fun PlayButton(onClick: () -> Unit) {
     Box(Modifier.size(32.dp).clip(CircleShape).background(ios.fill).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(Icons.Filled.PlayArrow, "Preview", tint = ios.tint, modifier = Modifier.size(20.dp))
+    }
+}
+
+/** Shown while the speech engine is connecting or unavailable, with a manual retry. */
+@Composable
+fun EngineStatus() {
+    val ctx = LocalContext.current
+    IosSection(footer = "Announcer uses your phone's text-to-speech engine (usually Speech Services by Google). " +
+        "If this doesn't clear in a few seconds, tap Retry, or check that a speech engine is installed and enabled.") {
+        IosRow("Connecting to speech engine…", icon = Icons.Filled.Warning, iconColor = ios.orange, divider = true)
+        IosRow("Retry", titleColor = ios.tint, divider = true, onClick = { app.speaker.reconnect() })
+        IosRow("Text-to-Speech Settings", titleColor = ios.tint, divider = false, chevron = true,
+            onClick = { ctx.startActivity(Intent("com.android.settings.TTS_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) })
     }
 }

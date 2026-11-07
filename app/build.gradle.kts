@@ -14,8 +14,8 @@ android {
         applicationId = "dev.bws.announcer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.3.0"
+        versionCode = 8
+        versionName = "1.3.1"
     }
 
     // Release key lives outside the repo (~/.android-keys). Without it, release builds fall back to the
@@ -34,6 +34,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Smoke-test build: installs next to the real app and logs the speech pipeline (tag AnnouncerSmoke).
+            applicationIdSuffix = ".smoke"
+            versionNameSuffix = "-smoke"
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
@@ -45,7 +50,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 dependencies {

@@ -18,6 +18,7 @@ data class LogEntry(
 /** Rolling on-device log of the last [MAX] decisions; answers "why didn't it read that?". */
 class ActivityLog(context: Context) {
     private val file = File(context.filesDir, "log.json")
+    private val persist = Persister(file)
     private val _entries = MutableStateFlow(load())
     val entries: StateFlow<List<LogEntry>> = _entries
 
@@ -25,13 +26,13 @@ class ActivityLog(context: Context) {
     fun add(e: LogEntry) {
         val next = (listOf(e) + _entries.value).take(MAX)
         _entries.value = next
-        runCatching { file.writeText(JSONArray(next.map(::toJson)).toString()) }
+        persist.save { JSONArray(next.map(::toJson)).toString() }
     }
 
     @Synchronized
     fun clear() {
         _entries.value = emptyList()
-        file.delete()
+        persist.delete()
     }
 
     private fun load(): List<LogEntry> = runCatching {

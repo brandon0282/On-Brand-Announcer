@@ -25,6 +25,7 @@ data class DayStats(
 
 class Stats(context: Context) {
     private val file = File(context.filesDir, "stats.json")
+    private val persist = Persister(file)
     private val _days = MutableStateFlow(load())
     /** Newest last. */
     val days: StateFlow<List<DayStats>> = _days
@@ -52,11 +53,11 @@ class Stats(context: Context) {
         val cutoff = LocalDate.now().minusDays(DAYS.toLong()).toString()
         val trimmed = list.filter { it.date > cutoff }.sortedBy { it.date }
         _days.value = trimmed
-        runCatching { file.writeText(JSONArray(trimmed.map(::toJson)).toString()) }
+        persist.save { JSONArray(trimmed.map(::toJson)).toString() }
     }
 
     @Synchronized
-    fun clear() { _days.value = emptyList(); file.delete() }
+    fun clear() { _days.value = emptyList(); persist.delete() }
 
     /** Collapse per-word reasons ("Contains blocked word \"x\"") into one bucket. */
     private fun bucket(r: String?) = when {
