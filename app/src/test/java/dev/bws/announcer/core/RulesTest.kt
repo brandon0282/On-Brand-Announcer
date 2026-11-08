@@ -131,7 +131,8 @@ class RulesTest {
 
     @Test fun guessesPrivateDevicesByName() {
         listOf("Soundcore Liberty 5 Pro", "AirPods Pro", "Galaxy Buds3 Pro", "Pixel Buds Pro", "WF-1000XM5",
-            "Bose QC Ultra Earbuds", "Soundcore Life Q30", "Mystery Device").forEach {
+            "Bose QC Ultra Earbuds", "Soundcore Life Q30", "Mystery Device",
+            "AIWA GLASSES", "VIVITAR GLASSES", "Echo Frames", "Bose Frames Tempo", "Ray-Ban Meta").forEach {
             assertTrue("$it should be private", Privacy.guessPrivate(it))
         }
         listOf("Soundcore Motion 300", "JBL Flip 6", "Bose SoundLink Flex", "Toyota Camry", "My Car", "SYNC", "Uconnect").forEach {
@@ -143,6 +144,11 @@ class RulesTest {
     private val car = headphones.copy(deviceName = "Toyota Camry")
     private val speaker = headphones.copy(headphones = false)
     private val loud = c.copy(outputMode = OutputMode.ALWAYS)
+
+    @Test fun audioGlassesHearFullMessages() {
+        val glasses = headphones.copy(deviceName = "AIWA GLASSES")
+        assertEquals("Chat. Mom. Dinner at 6?", speak(Rules.decide(n, glasses, c, never)))
+    }
 
     @Test fun sharedOnlyPrivacyFollowsDevice() {
         assertEquals("Chat. Mom. Dinner at 6?", speak(Rules.decide(n, earbuds, c, never)))

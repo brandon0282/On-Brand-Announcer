@@ -150,7 +150,9 @@ object Privacy {
     // (e.g. "Soundcore Liberty 5 Pro" earbuds vs "Soundcore Motion" speaker).
     private val personal = Regex(
         """\b(liberty|life|space|aerofit|buds?\d*|pods|airpods|earbuds?|earphones?|headphones?|headset|beats|powerbeats|""" +
-            """jabra|elite|freebuds|momentum|wf-\S+|wh-\S+|qc|quietcomfort|hearing|ear(fun)?|shokz|openrun|sport)\b""",
+            """jabra|elite|freebuds|momentum|wf-\S+|wh-\S+|qc|quietcomfort|hearing|ear(fun)?|shokz|openrun|sport|""" +
+            // Audio glasses: speakers sit at your ears, so treat them as personal (e.g. "AIWA GLASSES", "Echo Frames").
+            """glasses|frames|aiwa|vivitar|lucyd|anzu|ray-?ban|meta|solos|vue|tempo)\b""",
         RegexOption.IGNORE_CASE,
     )
     // Audio others can hear: cars and loudspeakers.
