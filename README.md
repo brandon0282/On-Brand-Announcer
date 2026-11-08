@@ -24,7 +24,7 @@ To update, download the newer `.apk` from Releases and install it over the old o
 - **Quiet hours**, **priority people** who always get through, and **per-device rules** (e.g. on in the car, off with work earbuds)
 - **Combines bursts**: "3 new messages from Mom. Latest: …"
 - **Caller ID**, **time announcements**, a **home-screen widget** and a **Quick Settings tile**
-- **Smart privacy**: full messages in your earbuds, only the app name on the phone speaker, in the car or on a Bluetooth speaker. Codes and banking alerts are read in full only on private devices.
+- **Smart privacy**: full messages in your earbuds, headphones or audio glasses, only the app name on the phone speaker, in the car or on a Bluetooth speaker. Codes and banking alerts are read in full only on private devices. Announcer guesses from each device's name, and you can flip any device in **Settings → Devices → Only I Can Hear This**.
 - **Attention tone** before each announcement (Soft Bell, Two Tone, Rising Chime, Droplet, Marimba, Glass)
 - Block/allow words, Do Not Disturb support, and an activity log that explains every skipped notification
 - **Check for Updates** in Settings opens the latest release here (the app itself never goes online)
