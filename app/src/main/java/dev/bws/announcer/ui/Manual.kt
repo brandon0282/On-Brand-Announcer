@@ -88,7 +88,7 @@ private val chapters: List<Pair<String, List<Topic>>> = listOf(
             "• Turn off Read on New Devices if you want new devices to stay silent until you enable them.",
         )),
         Topic("Combining bursts", Icons.Filled.Email, { ios.tint }, listOf(
-            "When several messages from the same person arrive within a few seconds, they're combined into one announcement: \"WhatsApp. 3 new messages from Mom. Latest: …\".",
+            "When several messages from the same person arrive within a few seconds, they're combined into one announcement: \"WhatsApp. 3 new messages from Mom. Latest: …\". Apps without a sender, like Calendar or email, are combined per app and the titles are listed: \"Calendar. 3 new notifications. Coffee meeting. …\".",
             "Set the window in Settings → Timing → Combine bursts within (0 turns it off). Combined messages still count as read on the dashboard.",
         )),
         Topic("Caller ID", Icons.Filled.Call, { ios.green }, listOf(

@@ -109,9 +109,25 @@ class RulesTest {
 
     @Test fun combinedSummary() {
         val d = Rules.decide(n.copy(sender = "Mom"), headphones, c, never) as Decision.Speak
-        assertEquals("Chat. Mom. Dinner at 6?", Rules.combined(d, 1, false))
-        assertEquals("Chat. 3 new messages from Mom. Latest: Dinner at 6?", Rules.combined(d, 3, false))
-        assertEquals("Chat. 3 new notifications", Rules.combined(d, 3, true))
+        assertEquals("Chat. Mom. Dinner at 6?", Rules.combined(listOf(d)))
+        assertEquals("Chat. 3 new messages from Mom. Latest: Dinner at 6?", Rules.combined(listOf(d, d, d)))
+        assertEquals("Chat. 3 new notifications", Rules.combined(listOf(d, d, d.copy(redacted = true))))
+    }
+
+    @Test fun senderlessAppsCombinePerAppAndListTitles() {
+        val cal = n.copy(pkg = "com.cal", appLabel = "Calendar", title = "Leave for Coffee Meeting", body = "8:30 – 9:00 AM")
+        val items = listOf(cal, cal.copy(title = "🎂 Edgard Tschanz, Birthday", body = "Tomorrow"),
+            cal.copy(title = "🎂 CT Thomas, Birthday", body = "Tomorrow"))
+            .map { Rules.decide(it, headphones, c, never) as Decision.Speak }
+        assertEquals(1, items.map { it.group }.distinct().size) // one burst, not three
+        assertEquals("Calendar. 3 new notifications. Leave for Coffee Meeting. Edgard Tschanz, Birthday. CT Thomas, Birthday",
+            Rules.combined(items))
+        val five = items + items.map { it.copy(topic = it.topic + " 2") }
+        assertTrue(Rules.combined(five.take(5)).endsWith("And 2 more"))
+        // Chat apps still keep each person separate.
+        val mom = Rules.decide(n.copy(sender = "Mom"), headphones, c, never) as Decision.Speak
+        val dad = Rules.decide(n.copy(sender = "Dad"), headphones, c, never) as Decision.Speak
+        assertFalse(mom.group == dad.group)
     }
 
     @Test fun callerText() {

@@ -40,6 +40,8 @@ sealed interface Decision {
         val name: String = "",
         val sender: String? = null,
         val content: String = "",
+        /** Short spoken label for this notification (sender, or the title for apps like Calendar). */
+        val topic: String = "",
         val priority: Boolean = false,
         /** True when content was withheld (privacy or sensitive), so combined summaries stay vague too. */
         val redacted: Boolean = false,
@@ -103,7 +105,10 @@ object Rules {
         }
         val voice = rule.voiceName ?: device?.voiceName ?: c.voiceName
         val who = n.sender ?: n.title.takeIf { it.isNotBlank() }
-        val group = n.pkg + "|" + (who?.lowercase() ?: "")
+        // Chat apps group per person. Apps without a sender (Calendar, email, news) group per app: their
+        // title is a subject, not a person, so grouping by it meant bursts were never combined.
+        val group = n.pkg + "|" + (n.sender?.lowercase() ?: "")
+        val topic = who?.let { Text.shape(it, 0, c.skipEmojis, c.shortenLinks) }.orEmpty()
         val private = Privacy.isPrivate(d, device)
         val hideAll = when (c.privacy) {
             PrivacyMode.ALWAYS -> true
@@ -113,28 +118,45 @@ object Rules {
         val from = if (name.isBlank()) "" else " from $name"
         if (hideAll) {
             return Decision.Speak(if (name.isBlank()) "New notification" else "Notification$from",
-                voice, group, name, who, "", priority, redacted = true)
+                voice, group, name, who, "", topic, priority, redacted = true)
         }
         // Codes, banking and security alerts: full detail only where nobody else can hear.
         val kind = Privacy.sensitiveKind(content)
         if (kind != null && (Privacy.isSystemRedacted(content) || (c.protectSensitive && !private))) {
-            return Decision.Speak("$kind$from", voice, group, name, who, "", priority, redacted = true)
+            return Decision.Speak("$kind$from", voice, group, name, who, "", topic, priority, redacted = true)
         }
         val limit = if (rule.maxWords > 0) rule.maxWords else c.maxWords
         val spoken = Text.shape(content, limit, c.skipEmojis, c.shortenLinks)
         if (spoken.isBlank()) return Decision.Mute("Nothing speakable after cleanup")
         val bodyOnly = Text.shape(n.body.ifBlank { content }, limit, c.skipEmojis, c.shortenLinks)
-        return Decision.Speak(if (name.isBlank()) spoken else "$name. $spoken", voice, group, name, who, bodyOnly, priority)
+        return Decision.Speak(if (name.isBlank()) spoken else "$name. $spoken", voice, group, name, who, bodyOnly, topic, priority)
     }
 
-    /** "WhatsApp. 4 new messages from Mom. Latest: see you soon" */
-    fun combined(latest: Decision.Speak, count: Int, privacy: Boolean): String {
+    /**
+     * One announcement for a burst from the same app (and same person, for chat apps):
+     * "WhatsApp. 4 new messages from Mom. Latest: see you soon", or for apps without a sender,
+     * "Calendar. 3 new notifications. Coffee meeting. Ana's birthday. Tom's birthday."
+     */
+    fun combined(items: List<Decision.Speak>): String {
+        val latest = items.last()
+        val count = items.size
         if (count <= 1) return latest.text
         val prefix = if (latest.name.isBlank()) "" else "${latest.name}. "
-        if (privacy) return "$prefix$count new notifications"
-        val head = if (latest.sender != null) "$count new messages from ${latest.sender}" else "$count new notifications"
-        return if (latest.content.isBlank()) "$prefix$head" else "$prefix$head. Latest: ${latest.content}"
+        if (items.any { it.redacted }) return "$prefix$count new notifications"
+        val topics = items.map { it.topic }.filter { it.isNotBlank() }.distinctBy { it.lowercase() }
+        val latestPart = if (latest.content.isBlank()) "" else ". Latest: ${latest.content}"
+        return when {
+            topics.size == 1 -> "$prefix$count new messages from ${topics[0]}$latestPart"
+            topics.isEmpty() -> "$prefix$count new notifications$latestPart"
+            else -> {
+                val shown = topics.take(MAX_LISTED)
+                val more = topics.size - shown.size
+                "$prefix$count new notifications. " + shown.joinToString(". ") + (if (more > 0) ". And $more more" else "")
+            }
+        }
     }
+
+    private const val MAX_LISTED = 3
 
     /** Spoken caller ID. Phone numbers are read digit by digit. */
     fun callerText(caller: String): String {
